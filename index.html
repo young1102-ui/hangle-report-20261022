@@ -207,9 +207,44 @@ pre{white-space:pre-wrap;word-break:keep-all;font-family:inherit;font-size:17px;
   margin-top:16px;padding:13px 15px;border-radius:13px;background:#fff7df;
   color:#6f5318;font-size:16px;line-height:1.55;font-weight:700
 }
-.checklist-actions{display:flex;justify-content:flex-end;margin-top:16px}
+.checklist-actions{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:16px}
+.checklist-right-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .checklist-actions button{
   min-width:140px;min-height:48px;font-size:16px;font-weight:800
+}
+.checklist-actions .reset-checks{
+  background:#fff;
+  color:#7a4c3b;
+  border-color:#d8c1b7;
+}
+.checklist-actions .reset-checks:hover{
+  background:#fff8f5;
+}
+
+.checklist-actions .save-close{
+  background:#fff;
+  color:var(--ink);
+  border-color:#cfd9d1;
+}
+.checklist-actions .save-close:hover{background:#f7faf7}
+.checklist-actions .primary:disabled{
+  background:#d9dfda;
+  color:#7b867e;
+  border-color:#d9dfda;
+  cursor:not-allowed;
+}
+@media (max-width:620px){
+  .checklist-actions{align-items:stretch}
+  .checklist-right-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .checklist-right-actions button{width:100%}
+}
+@media (max-width:460px){
+  .checklist-right-actions{grid-template-columns:1fr}
+}
+
+@media (max-width:520px){
+  .checklist-actions{flex-direction:column;align-items:stretch}
+  .checklist-actions button{width:100%}
 }
 @media (max-width:620px){
   .toolbar-group{display:grid;grid-template-columns:1fr 1fr}
@@ -315,7 +350,7 @@ footer{padding:40px 20px 60px;color:var(--muted);text-align:center}
     <div class="checklist-head">
       <div>
         <h2 id="checklistTitle">✅ 보고서 제출 전 체크리스트</h2>
-        <div class="guide">보고서를 다 작성한 뒤, 위에서부터 하나씩 천천히 확인하세요.</div>
+        <div class="guide">확인한 항목은 체크하세요. 중간에 닫아도 체크 상태가 저장되어 다음에 이어서 확인할 수 있습니다.</div>
       </div>
       <button class="shortcut-close" onclick="closeChecklist()" aria-label="닫기">×</button>
     </div>
@@ -397,8 +432,12 @@ footer{padding:40px 20px 60px;color:var(--muted);text-align:center}
       💡 특히 <b>메모에 없는 내용이 추가되지 않았는지</b>, <b>숫자·작물명·기관명</b>이 정확한지 꼭 확인하세요.
     </div>
 
-    <div class="checklist-actions">
-      <button class="primary" onclick="closeChecklist()">확인 완료 · 닫기</button>
+        <div class="checklist-actions">
+      <button class="reset-checks" onclick="clearChecklist(this)">전체 체크 해제</button>
+      <div class="checklist-right-actions">
+        <button type="button" class="save-close" onclick="closeChecklist()">나중에 계속 · 닫기</button>
+        <button type="button" id="completeChecklistBtn" class="primary" onclick="completeChecklist()" disabled>확인 완료 · 닫기</button>
+      </div>
     </div>
   </div>
 </div>
@@ -576,12 +615,41 @@ function closeShortcuts(){
 
 function openChecklist(){
   const modal=document.getElementById('checklistModal');
-  modal.classList.add('open');
-  document.body.style.overflow='hidden';
+
   document.querySelectorAll('#checklistModal [data-check]').forEach(cb=>{
     cb.checked=localStorage.getItem('garden_check_'+cb.dataset.check)==='1';
+
+    const row=document.getElementById('checkRow'+cb.dataset.check);
+    if(row) row.classList.toggle('checked',cb.checked);
   });
+
+  modal.classList.add('open');
+  document.body.style.overflow='hidden';
   updateChecklist(false);
+}
+
+function completeChecklist(){
+  const boxes=[...document.querySelectorAll('#checklistModal [data-check]')];
+  const allDone=boxes.length>0 && boxes.every(cb=>cb.checked);
+  if(!allDone) return;
+
+  boxes.forEach(cb=>{
+    cb.checked=false;
+    localStorage.removeItem('garden_check_'+cb.dataset.check);
+
+    const row=document.getElementById('checkRow'+cb.dataset.check);
+    if(row) row.classList.remove('checked');
+  });
+
+  const count=document.getElementById('checklistCount');
+  const bar=document.getElementById('checklistBar');
+  if(count) count.textContent='0 / '+boxes.length+' 확인';
+  if(bar) bar.style.width='0%';
+
+  const completeBtn=document.getElementById('completeChecklistBtn');
+  if(completeBtn) completeBtn.disabled=true;
+
+  closeChecklist();
 }
 
 function closeChecklist(){
@@ -590,21 +658,56 @@ function closeChecklist(){
   document.body.style.overflow='';
 }
 
+
+function clearChecklist(btn){
+  const boxes=[...document.querySelectorAll('#checklistModal [data-check]')];
+
+  boxes.forEach(cb=>{
+    cb.checked=false;
+    localStorage.removeItem('garden_check_'+cb.dataset.check);
+
+    const row=document.getElementById('checkRow'+cb.dataset.check);
+    if(row) row.classList.remove('checked');
+  });
+
+  const count=document.getElementById('checklistCount');
+  const bar=document.getElementById('checklistBar');
+  if(count) count.textContent='0 / '+boxes.length+' 확인';
+  if(bar) bar.style.width='0%';
+  const completeBtn=document.getElementById('completeChecklistBtn');
+  if(completeBtn) completeBtn.disabled=true;
+
+  if(btn){
+    const old=btn.textContent;
+    btn.textContent='전체 체크 해제됨 ✓';
+    setTimeout(()=>btn.textContent=old,1200);
+  }
+}
+
 function updateChecklist(save=true){
   const boxes=[...document.querySelectorAll('#checklistModal [data-check]')];
+
   if(save){
-    boxes.forEach(cb=>localStorage.setItem('garden_check_'+cb.dataset.check,cb.checked?'1':'0'));
+    boxes.forEach(cb=>{
+      if(cb.checked) localStorage.setItem('garden_check_'+cb.dataset.check,'1');
+      else localStorage.removeItem('garden_check_'+cb.dataset.check);
+    });
   }
+
   boxes.forEach(cb=>{
     const row=document.getElementById('checkRow'+cb.dataset.check);
     if(row) row.classList.toggle('checked',cb.checked);
   });
+
   const done=boxes.filter(cb=>cb.checked).length;
   const total=boxes.length || 15;
   const count=document.getElementById('checklistCount');
   const bar=document.getElementById('checklistBar');
-  if(count) count.textContent=`${done} / ${total} 확인`;
+  const completeBtn=document.getElementById('completeChecklistBtn');
+
+  if(count) count.textContent=done+' / '+total+' 확인';
   if(bar) bar.style.width=(done/total*100)+'%';
+  if(completeBtn) completeBtn.disabled=(done!==total);
 }
 
 document.addEventListener('keydown',e=>{
